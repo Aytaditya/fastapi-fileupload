@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import StreamingResponse,JSONResponse
+from fastapi.responses import StreamingResponse
 import pandas as pd
 from io import BytesIO
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,23 +19,25 @@ app.add_middleware(
 def home():
     return {"message": "FastAPI is working!"}
 
+@app.post("/create-excel/")
+async def create_excel(file: UploadFile = File(...)):  # file input just to trigger the endpoint
+    # Create a new DataFrame
+    data = {
+        'name': ['Alice', 'Bob', 'Charlie'],
+        'email': ['alice@example.com', 'bob@example.com', 'charlie@example.com'],
+        'age': [25, 30, 22]
+    }
+    df = pd.DataFrame(data)
 
-@app.post("/upload-excel/") 
-async def upload_excel(file: UploadFile = File(...)):
-    # Read uploaded Excel file
-    contents = await file.read()
-    df = pd.read_excel(BytesIO(contents))
-
-    # Add columns
-    df['name'] = 'John Doe'
-    df['email'] = 'johndoe@example.com'
-    df['age'] = 30
-
-    # Save modified Excel to BytesIO
+    # Write DataFrame to an Excel file in memory
     output = BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        df.to_excel(writer, index=False)
+        df.to_excel(writer, index=False, sheet_name='Users')
+
     output.seek(0)
 
-    # Send file back as response
-    return StreamingResponse(output, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={"Content-Disposition": f"attachment; filename=modified_{file.filename}"})
+    return StreamingResponse(
+        output,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={"Content-Disposition": "attachment; filename=generated_data.xlsx"}
+    )
